@@ -70,7 +70,19 @@ var OPCUAConfigSpec = OPCUAConnectionConfigSpec.
 	Field(service.NewFloatField("samplingInterval").Description("The interval for sampling on the OPC UA server - notice 0.0 will get you updates as fast as possible").Default(DefaultSamplingInterval).
 		Optional().
 		Advanced().
-		Examples(0.0, 100.0, 1000.0))
+		Examples(0.0, 100.0, 1000.0)).
+	Field(service.NewIntField("browseDepth").
+		Description("Do not recurse further down the tree. Useful (=0) for OPCUA configurations with nested configuration parameters that should not be subscribed to. Default 25").
+		Default(MaxBrowseDepth).
+		Optional().
+		Advanced().
+		Examples(0, 25)).
+	Field(service.NewBoolField("continueOnSubError").
+		Description("Continue on subscription error. If set to true, the input will continue monitoring other nodes even if a subscription fails. Does not cover when node does not exist.").
+		Default(false).
+		Optional().
+		Advanced().
+		Examples(true, false))
 
 func ParseNodeIDs(incomingNodes []string) []*ua.NodeID {
 	// Parse all nodeIDs to validate them.
@@ -117,6 +129,16 @@ func newOPCUAInput(conf *service.ParsedConfig, mgr *service.Resources) (service.
 		return nil, err
 	}
 
+	browseDepth, err := conf.FieldInt("browseDepth")
+	if err != nil {
+		return nil, err
+	}
+
+	continueOnSubError, err := conf.FieldBool("continueOnSubError")
+	if err != nil {
+		return nil, err
+	}
+
 	queueSize, err := conf.FieldInt("queueSize")
 	if err != nil {
 		return nil, err
@@ -154,6 +176,8 @@ func newOPCUAInput(conf *service.ParsedConfig, mgr *service.Resources) (service.
 		SamplingInterval:             samplingInterval,
 		DeadbandType:                 deadbandType,
 		DeadbandValue:                deadbandValue,
+		BrowseDepth:                  browseDepth,
+		ContinueOnSubError:           continueOnSubError,
 	}
 
 	m.cleanup_func = func(ctx context.Context) {
@@ -259,6 +283,8 @@ type OPCUAInput struct {
 	DeadbandType                 string
 	DeadbandValue                float64
 	ServerCapabilities           *ServerCapabilities
+	BrowseDepth                  int
+	ContinueOnSubError           bool
 
 	// browseErr signals async browse failure to ReadBatch (avoids self-Close deadlock).
 	browseErrMu sync.Mutex
@@ -473,6 +499,10 @@ func (g *OPCUAInput) ReadBatchPull(ctx context.Context) (service.MessageBatch, s
 	// benthos will set a default value if not set, and this is the fallback option for tests
 	if g.PollRate <= 0 {
 		g.PollRate = DefaultPollRate
+	}
+
+	if g.BrowseDepth < 0 {
+		g.BrowseDepth = MaxBrowseDepth
 	}
 
 	// Read all values in NodeList and return each of them as a message with the node's path as the metadata
