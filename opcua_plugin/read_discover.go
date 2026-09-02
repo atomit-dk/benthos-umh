@@ -206,7 +206,10 @@ func (g *OPCUAInput) discoverNodes(ctx context.Context) ([]NodeDef, error) {
 		for err := range errChan {
 			combinedErr.WriteString(err.Error() + "; ")
 		}
-		return nil, errors.New(combinedErr.String())
+		if !g.ContinueOnSubError || len(nodeList) == 0 {
+			return nil, errors.New(combinedErr.String())
+		}
+		g.Log.Warnf("Discovery error, but configured to continue: %v", combinedErr.String())
 	}
 
 	return nodeList, nil

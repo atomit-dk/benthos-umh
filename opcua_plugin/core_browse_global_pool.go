@@ -667,7 +667,7 @@ func (gwp *GlobalWorkerPool) workerLoop(workerID uuid.UUID, controlChan chan str
 				// Send error to error channel
 				if task.ErrChan != nil {
 					select {
-					case task.ErrChan <- err:
+					case task.ErrChan <- errors.Errorf("nodeID=%s path=%s err=%v",task.NodeID, task.Path, err):
 					case <-task.Ctx.Done():
 					}
 				}
