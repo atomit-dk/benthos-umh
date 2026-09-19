@@ -46,6 +46,8 @@ const (
 	MaxBrowseDepth = 25
 )
 
+var BrowseDepth = MaxBrowseDepth
+
 // GlobalPoolTask represents a browse operation to execute in the global worker pool.
 // This is a simplified task structure focused on queueing and result delivery.
 // It differs from NodeTask in core_browse.go which contains browse execution state.
@@ -665,7 +667,7 @@ func (gwp *GlobalWorkerPool) workerLoop(workerID uuid.UUID, controlChan chan str
 				// Send error to error channel
 				if task.ErrChan != nil {
 					select {
-					case task.ErrChan <- err:
+					case task.ErrChan <- errors.Errorf("nodeID=%s path=%s err=%v",task.NodeID, task.Path, err):
 					case <-task.Ctx.Done():
 					}
 				}
@@ -706,7 +708,7 @@ func (gwp *GlobalWorkerPool) workerLoop(workerID uuid.UUID, controlChan chan str
 			}
 
 			// Submit children as new tasks (if within recursion depth)
-			if task.Level < MaxBrowseDepth {
+			if task.Level < BrowseDepth {
 				for _, child := range children {
 					childNodeID := child.ID().String()
 

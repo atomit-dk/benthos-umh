@@ -235,3 +235,7 @@ serve-pprof:
 			exit 1; \
 		fi && \
 		go tool pprof -http=:8080 "localhost:4195/debug/pprof/profile?seconds=20"
+
+docker-buildx: build
+	cp -p $(BENTHOS_BIN) ./
+	docker buildx build -t benthos:latest .

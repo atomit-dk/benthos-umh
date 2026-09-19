@@ -73,6 +73,9 @@ func (g *OPCUAInput) discoverNodes(ctx context.Context) ([]NodeDef, error) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, 1*time.Hour)
 	defer cancel()
 
+	// Set browse depth for the session
+	BrowseDepth = g.BrowseDepth
+
 	// Create GlobalWorkerPool for ALL browse operations (global concurrency limit)
 	// This replaces the per-browse worker pool pattern (each browse() call creating its own pool).
 	// Example: A deployment with 300 NodeIDs × 5 workers = 1,500 concurrent (exceeds 64 server capacity).
@@ -203,7 +206,10 @@ func (g *OPCUAInput) discoverNodes(ctx context.Context) ([]NodeDef, error) {
 		for err := range errChan {
 			combinedErr.WriteString(err.Error() + "; ")
 		}
-		return nil, errors.New(combinedErr.String())
+		if !g.ContinueOnSubError || len(nodeList) == 0 {
+			return nil, errors.New(combinedErr.String())
+		}
+		g.Log.Warnf("Discovery error, but configured to continue: %v", combinedErr.String())
 	}
 
 	return nodeList, nil
@@ -658,10 +664,13 @@ func (g *OPCUAInput) MonitorBatched(ctx context.Context, nodes []NodeDef) (int, 
 				// g.Log.Debugf("MonitoredItem OK ns=%d;id=%s -> revisedSampling=%.0fms revisedQueue=%d itemID=%d",
 				//	batch[i].NodeID.Namespace(), batch[i].NodeID.String(),
 				//	result.RevisedSamplingInterval, result.RevisedQueueSize, result.MonitoredItemID)
-				if closeErr := g.Close(ctx); closeErr != nil {
-					g.Log.Errorf("Failed to close OPC UA connection: %v", closeErr)
+				if !g.ContinueOnSubError {
+					// totalMonitored will be incorrect
+					if closeErr := g.Close(ctx); closeErr != nil {
+						g.Log.Errorf("Failed to close OPC UA connection: %v", closeErr)
+					}
+					return totalMonitored, fmt.Errorf("monitoring failed for node %s: %w", failedNode, result.StatusCode)
 				}
-				return totalMonitored, fmt.Errorf("monitoring failed for node %s: %w", failedNode, result.StatusCode)
 			}
 		}
 
