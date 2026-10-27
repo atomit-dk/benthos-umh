@@ -168,6 +168,16 @@ test-classic-to-core:
 	@TEST_CLASSIC_TO_CORE=1 \
 		$(GINKGO_CMD) $(GINKGO_FLAGS) ./classic_to_core_plugin/...
 
+# The hardware specs skip themselves unless TEST_ADS_TC2_/TC3_TARGET_IP name a
+# reachable PLC, so this runs the unit specs alone by default.
+.PHONY: test-ads
+test-ads:
+	@$(GINKGO_CMD) $(GINKGO_FLAGS) ./beckhoff_ads_plugin/...
+
+.PHONY: test-pkg
+test-pkg:
+	@$(GINKGO_CMD) $(GINKGO_FLAGS) ./pkg/...
+
 .PHONY: test-downsampler
 test-downsampler:
 	@$(GINKGO_CMD) $(GINKGO_FLAGS) ./downsampler_plugin/...
@@ -215,17 +225,15 @@ endif
 changelog: $(CHANGIE)
 	$(CHANGIE) new
 
-.PHONY: changelog-merge
-changelog-merge: $(CHANGIE)
+# Batches the fragments into .changelog/<version>.md and regenerates CHANGELOG.md.
+# Fails if that version file already exists.
+.PHONY: release-changelog
+release-changelog: $(CHANGIE)
 ifndef VERSION
-	$(error VERSION is required. Usage: make changelog-merge VERSION=v0.13.0)
+	$(error VERSION is required. Usage: make release-changelog VERSION=v0.17.0)
 endif
-	$(CHANGIE) batch $(VERSION) --force
+	$(CHANGIE) batch $(VERSION)
 	$(CHANGIE) merge
-
-.PHONY: changelog-diff
-changelog-diff: $(CHANGIE)
-	@$(CHANGIE) diff 1 | tail -n +2
 
 .PHONY: serve-pprof
 serve-pprof:

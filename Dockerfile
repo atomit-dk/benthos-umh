@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.27.0@sha256:4013ae0f9e7994f8535c58c811f8f863fbed38b72e0d51e6592156f758d66146 AS build
+FROM golang:1.27.1@sha256:3680233e3204827fbdc66088528ae6d4b3d034f51d03a99d454f6de034888244 AS build
 
 RUN useradd -u 10001 benthos
 
@@ -25,6 +25,7 @@ RUN go mod download
 
 COPY ./pkg ./pkg
 COPY ./cmd ./cmd
+COPY ./beckhoff_ads_plugin ./beckhoff_ads_plugin
 COPY ./downsampler_plugin ./downsampler_plugin
 COPY ./opcua_plugin ./opcua_plugin
 COPY ./s7comm_plugin ./s7comm_plugin
